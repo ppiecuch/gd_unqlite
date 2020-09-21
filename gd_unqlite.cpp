@@ -6,3 +6,6 @@
 
 UNQLite::UNQLite() {
 }
+
+void UNQLite::_bind_methods() {
+}

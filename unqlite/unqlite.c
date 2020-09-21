@@ -246,6 +246,12 @@ typedef struct unqlite unqlite;
 #endif /* _WIN32_WCE */
 #else
 /*
+ * Nintendeo 3DS and PSVita are another limited system.
+ */
+#if defined(_3DS) || defined(__psp2__)
+#define OS_OTHER
+#endif
+/*
  * By default we will assume that we are compiling on a UNIX systems.
  * Otherwise the OS_OTHER directive must be defined.
  */
@@ -4879,14 +4885,13 @@ int unqlite_value_string(unqlite_value *pVal, const char *zString, int nLen)
 int unqlite_value_string_format(unqlite_value *pVal, const char *zFormat,...)
 {
 	va_list ap;
-	int rc;
 	if((pVal->iFlags & MEMOBJ_STRING) == 0 ){
 		/* Invalidate any prior representation */
 		jx9MemObjRelease(pVal);
 		MemObjSetType(pVal, MEMOBJ_STRING);
 	}
 	va_start(ap, zFormat);
-	rc = SyBlobFormatAp(&pVal->sBlob, zFormat, ap);
+	SyBlobFormatAp(&pVal->sBlob, zFormat, ap);
 	va_end(ap);
 	return UNQLITE_OK;
 }
@@ -8548,14 +8553,13 @@ JX9_PRIVATE int jx9_value_string(jx9_value *pVal, const char *zString, int nLen)
 JX9_PRIVATE int jx9_value_string_format(jx9_value *pVal, const char *zFormat, ...)
 {
 	va_list ap;
-	int rc;
 	if((pVal->iFlags & MEMOBJ_STRING) == 0 ){
 		/* Invalidate any prior representation */
 		jx9MemObjRelease(pVal);
 		MemObjSetType(pVal, MEMOBJ_STRING);
 	}
 	va_start(ap, zFormat);
-	rc = SyBlobFormatAp(&pVal->sBlob, zFormat, ap);
+	SyBlobFormatAp(&pVal->sBlob, zFormat, ap);
 	va_end(ap);
 	return JX9_OK;
 }
@@ -12247,7 +12251,6 @@ JX9_PRIVATE sxi32 jx9InputFormat(
 	jx9_value *pArg;         /* Current processed argument */
 	jx9_int64 iVal;
 	int precision;           /* Precision of the current field */
-	char *zExtra;  
 	int c, rc, n;
 	int length;              /* Length of the field */
 	int prefix;
@@ -12356,7 +12359,6 @@ JX9_PRIVATE sxi32 jx9InputFormat(
 		}
 		zBuf = zWorker; /* Point to the working buffer */
 		length = 0;
-		zExtra = 0;
 		 /*
 		  ** At this point, variables are initialized as follows:
 		  **
@@ -18406,9 +18408,8 @@ static sxi32 jx9CompileBreak(jx9_gen_state *pGen)
 {
 	GenBlock *pLoop; /* Target loop */
 	sxi32 iLevel;    /* How many nesting loop to skip */
-	sxu32 nLine;
+	sxu32 nLine = pGen->pIn->nLine;
 	sxi32 rc;
-	nLine = pGen->pIn->nLine;
 	iLevel = 0;
 	/* Jump the 'break' keyword */
 	pGen->pIn++;
@@ -18426,7 +18427,7 @@ static sxi32 jx9CompileBreak(jx9_gen_state *pGen)
 	pLoop = GenStateFetchBlock(pGen->pCurrent, GEN_BLOCK_LOOP, iLevel);
 	if( pLoop == 0 ){
 		/* Illegal break */
-		rc = jx9GenCompileError(pGen, E_ERROR, pGen->pIn->nLine, "A 'break' statement may only be used within a loop or switch");
+		rc = jx9GenCompileError(pGen, E_ERROR, nLine, "A 'break' statement may only be used within a loop or switch");
 		if( rc == SXERR_ABORT ){
 			/* Error count limit reached, abort immediately */
 			return SXERR_ABORT;
@@ -18441,7 +18442,7 @@ static sxi32 jx9CompileBreak(jx9_gen_state *pGen)
 	}
 	if( pGen->pIn < pGen->pEnd && (pGen->pIn->nType & JX9_TK_SEMI) == 0 ){
 		/* Not so fatal, emit a warning only */
-		jx9GenCompileError(&(*pGen), E_WARNING, pGen->pIn->nLine, "Expected semi-colon ';' after 'break' statement");
+		jx9GenCompileError(&(*pGen), E_WARNING, nLine, "Expected semi-colon ';' after 'break' statement");
 	}
 	/* Statement successfully compiled */
 	return SXRET_OK;
@@ -19869,13 +19870,12 @@ static sxi32 GenStateProcessArgValue(jx9_gen_state *pGen, jx9_vm_func_arg *pArg,
 static sxi32 GenStateCollectFuncArgs(jx9_vm_func *pFunc, jx9_gen_state *pGen, SyToken *pEnd)
 {
 	jx9_vm_func_arg sArg; /* Current processed argument */
-	SyToken *pCur, *pIn;  /* Token stream */
+	SyToken *pIn;         /* Token stream */
 	SyBlob sSig;         /* Function signature */
 	char *zDup;          /* Copy of argument name */
 	sxi32 rc;
 
 	pIn = pGen->pIn;
-	pCur = 0;
 	SyBlobInit(&sSig, &pGen->pVm->sAllocator);
 	/* Process arguments one after one */
 	for(;;){
@@ -29168,7 +29168,6 @@ static const SyFmtInfo aFmt[] = {
   char prefix;             /* Prefix character."+" or "-" or " " or '\0'.*/
   sxu8 errorflag = 0;      /* True if an error is encountered */
   sxu8 xtype;              /* Conversion paradigm */
-  char *zExtra;    
   static char spaces[] = "                                                  ";
 #define etSPACESIZE ((int)sizeof(spaces)-1)
 #ifndef SX_OMIT_FLOATINGPOINT
@@ -29273,7 +29272,6 @@ static const SyFmtInfo aFmt[] = {
         break;
       }
     }
-    zExtra = 0;
 
     /*
     ** At this point, variables are initialized as follows:
@@ -29920,29 +29918,28 @@ static sxi32 ArchiveHashInstallEntry(SyArchive *pArch, SyArchiveEntry *pEntry)
  static sxi32 ParseEndOfCentralDirectory(SyArchive *pArch, const unsigned char *zBuf)
  {
 	sxu32 nMagic = 0; /* cc -O6 warning */
- 	sxi32 rc;
  	
  	/* Sanity check */
- 	rc = SyLittleEndianUnpack32(&nMagic, zBuf, sizeof(sxu32));
- 	if( /* rc != SXRET_OK || */nMagic != SXZIP_END_CENTRAL_MAGIC ){
+#define _rc1 = SyLittleEndianUnpack32(&nMagic, zBuf, sizeof(sxu32));
+ 	if( /* _rc1 != SXRET_OK || */nMagic != SXZIP_END_CENTRAL_MAGIC ){
  		return SXERR_CORRUPT;
  	}
  	/* # of entries */
- 	rc = SyLittleEndianUnpack16((sxu16 *)&pArch->nEntry, &zBuf[8], sizeof(sxu16));
- 	if( /* rc != SXRET_OK || */ pArch->nEntry > SXI16_HIGH /* SXU16_HIGH */ ){
+#define _rc2 = SyLittleEndianUnpack16((sxu16 *)&pArch->nEntry, &zBuf[8], sizeof(sxu16));
+ 	if( /* _rc2 != SXRET_OK || */ pArch->nEntry > SXI16_HIGH /* SXU16_HIGH */ ){
  		return SXERR_CORRUPT;
  	}
  	/* Size of central directory */
- 	rc = SyLittleEndianUnpack32(&pArch->nCentralSize, &zBuf[12], sizeof(sxu32));
- 	if( /*rc != SXRET_OK ||*/ pArch->nCentralSize > SXI32_HIGH ){
+#define _rc3 = SyLittleEndianUnpack32(&pArch->nCentralSize, &zBuf[12], sizeof(sxu32));
+ 	if( /* _rc3 != SXRET_OK ||*/ pArch->nCentralSize > SXI32_HIGH ){
  		return SXERR_CORRUPT;
  	}
  	/* Starting offset of central directory */
- 	rc = SyLittleEndianUnpack32(&pArch->nCentralOfft, &zBuf[16], sizeof(sxu32));
- 	if( /*rc != SXRET_OK ||*/ pArch->nCentralSize > SXI32_HIGH ){
+#define _rc4 = SyLittleEndianUnpack32(&pArch->nCentralOfft, &zBuf[16], sizeof(sxu32));
+ 	if( /* _rc4 != SXRET_OK ||*/ pArch->nCentralSize > SXI32_HIGH ){
  		return SXERR_CORRUPT;
  	}
- 	
+
  	return SXRET_OK;
  }
  /*

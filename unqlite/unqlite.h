@@ -178,6 +178,12 @@ typedef struct unqlite unqlite;
 #endif /* _WIN32_WCE */
 #else
 /*
+ * Nintendeo 3DS and PSVita are another limited system.
+ */
+#if defined(_3DS) || defined(__psp2__)
+#define OS_OTHER
+#endif
+/*
  * By default we will assume that we are compiling on a UNIX systems.
  * Otherwise the OS_OTHER directive must be defined.
  */

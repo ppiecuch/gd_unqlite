@@ -1,5 +1,7 @@
-# SCsub
-Import('env')
+#!/usr/bin/env python
 
-env.add_source_files(env.modules_sources,"*.cpp")       # just add all cpp files to the build
-env.add_source_files(env.modules_sources,"unqlite/*.c") # add unqlite sources (v.1.1.9)
+Import("env")
+Import("env_modules")
+
+env_modules.add_source_files(env.modules_sources, "*.cpp")  # just add all cpp files to the build
+env_modules.add_source_files(env.modules_sources, "unqlite/*.c")  # add unqlite sources (v.1.1.9)
