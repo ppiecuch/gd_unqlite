@@ -246,12 +246,6 @@ typedef struct unqlite unqlite;
 #endif /* _WIN32_WCE */
 #else
 /*
- * Nintendeo 3DS and PSVita are another limited system.
- */
-#if defined(_3DS) || defined(__psp2__)
-#define OS_OTHER
-#endif
-/*
  * By default we will assume that we are compiling on a UNIX systems.
  * Otherwise the OS_OTHER directive must be defined.
  */
@@ -10069,18 +10063,18 @@ static int jx9Builtin_substr_count(jx9_context *pCtx, int nArg, jx9_value **apAr
 		return JX9_OK;
 	}
 	if( nArg > 2 ){
-		int nOfft;
+		int nOfftxt;
 		/* Extract the offset */
-		nOfft = jx9_value_to_int(apArg[2]);
-		if( nOfft < 0 || nOfft > nTextlen ){
+		nOfftxt = jx9_value_to_int(apArg[2]);
+		if( nOfftxt < 0 || nOfftxt > nTextlen ){
 			/* Invalid offset, return zero */
 			jx9_result_int(pCtx, 0);
 			return JX9_OK;
 		}
 		/* Point to the desired offset */
-		zText = &zText[nOfft];
+		zText = &zText[nOfftxt];
 		/* Adjust length */
-		nTextlen -= nOfft;
+		nTextlen -= nOfftxt;
 	}
 	/* Point to the end of the string */
 	zEnd = &zText[nTextlen];
@@ -16635,7 +16629,7 @@ static int jx9Builtin_idate(jx9_context *pCtx, int nArg, jx9_value **apArg)
 static int jx9Builtin_mktime(jx9_context *pCtx, int nArg, jx9_value **apArg)
 {
 	const char *zFunction;
-	jx9_int64 iVal = 0;
+	jx9_int64 iValue = 0;
 	struct tm *pTm;
 	time_t t;
 	/* Extract function name */
@@ -16688,9 +16682,9 @@ static int jx9Builtin_mktime(jx9_context *pCtx, int nArg, jx9_value **apArg)
 		}
 	}
 	/* Make the time */
-	iVal = (jx9_int64)mktime(pTm);
+	iValue = (jx9_int64)mktime(pTm);
 	/* Return the timesatmp as a 64bit integer */
-	jx9_result_int64(pCtx, iVal);
+	jx9_result_int64(pCtx, iValue);
 	return JX9_OK;
 }
 /*
@@ -20740,7 +20734,9 @@ static void JX9_VER_Const(jx9_value *pVal, void *pUnused)
 #ifdef __WINNT__
 #include <Windows.h>
 #elif defined(__UNIXES__)
+#if !defined(_3DS) && !defined(__psp2__)
 #include <sys/utsname.h>
+#endif
 #endif
 /*
  * JX9_OS
@@ -20751,6 +20747,10 @@ static void JX9_OS_Const(jx9_value *pVal, void *pUnused)
 {
 #if defined(__WINNT__)
 	jx9_value_string(pVal, "WinNT", (int)sizeof("WinNT")-1);
+#elif defined(_3DS)
+	jx9_value_string(pVal, "Nintendo 3DS", (int)sizeof("Nintendo 3DS")-1);
+#elif defined(__psp2__)
+	jx9_value_string(pVal, "Sony PS Vita", (int)sizeof("Sony PS Vita")-1);
 #elif defined(__UNIXES__)
 	struct utsname sInfo;
 	if( uname(&sInfo) != 0 ){
@@ -35580,7 +35580,9 @@ static int jx9Vfs_getmygid(jx9_context *pCtx, int nArg, jx9_value **apArg)
 #ifdef __WINNT__
 #include <Windows.h>
 #elif defined(__UNIXES__)
+#if !defined(_3DS) && !defined(__psp2__)
 #include <sys/utsname.h>
+#endif
 #endif
 /*
  * string uname([ string $mode = "a" ])
@@ -35599,18 +35601,23 @@ static int jx9Vfs_getmygid(jx9_context *pCtx, int nArg, jx9_value **apArg)
  */
 static int jx9Vfs_uname(jx9_context *pCtx, int nArg, jx9_value **apArg)
 {
+#if defined(_3DS)
+	jx9_result_string(pCtx, "Nintendo 3DS/localhost", (int)sizeof("Nintendo 3DS/localhost")-1);
+#elif defined(__psp2__)
+	jx9_result_string(pCtx, "Sony PS Vita/localhost", (int)sizeof("Sony PS Vita/localhost")-1);
+#else
 #if defined(__WINNT__)
 	const char *zName = "Microsoft Windows";
 	OSVERSIONINFOW sVer;
 #elif defined(__UNIXES__)
 	struct utsname sName;
 #endif
-	const char *zMode = "a";
+const char *zMode = "a";
+#if defined(__WINNT__)
 	if( nArg > 0 && jx9_value_is_string(apArg[0]) ){
 		/* Extract the desired mode */
 		zMode = jx9_value_to_string(apArg[0], 0);
 	}
-#if defined(__WINNT__)
 	sVer.dwOSVersionInfoSize = sizeof(sVer);
 	if( TRUE != GetVersionExW(&sVer)){
 		jx9_result_string(pCtx, zName, -1);
@@ -35701,6 +35708,7 @@ static int jx9Vfs_uname(jx9_context *pCtx, int nArg, jx9_value **apArg)
 #else
 	jx9_result_string(pCtx, "Host Operating System/localhost", (int)sizeof("Host Operating System/localhost")-1);
 #endif
+#endif /* _3DS || __psp2__ */
 	return JX9_OK;
 }
 /*
@@ -38949,6 +38957,8 @@ static int jx9Builtin_zip_entry_compressionmethod(jx9_context *pCtx, int nArg, j
 	return JX9_OK;
 }
 #endif /* #ifndef JX9_DISABLE_BUILTIN_FUNC*/
+#ifndef JX9_DISABLE_BUILTIN_FUNC
+#if defined(JX9_DISABLE_DISK_IO) || (!defined( __WINNT__) && !defined(__UNIXES__))
 /* NULL VFS [i.e: a no-op VFS]*/
 static const jx9_vfs null_vfs = {
 	"null_vfs", 
@@ -38995,6 +39005,8 @@ static const jx9_vfs null_vfs = {
 	0, /* void (*xUsername)(jx9_context *) */
 	0  /* int (*xExec)(const char *, jx9_context *) */
 };
+#endif
+#endif /* JX9_DISABLE_BUILTIN_FUNC */
 #ifndef JX9_DISABLE_BUILTIN_FUNC
 #ifndef JX9_DISABLE_DISK_IO
 #ifdef __WINNT__
