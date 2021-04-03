@@ -6301,7 +6301,6 @@ UNQLITE_APIEXPORT int unqlite_util_random_string(unqlite *pDb,char *zBuf,unsigne
  */
 UNQLITE_APIEXPORT unsigned int unqlite_util_random_num(unqlite *pDb)
 {
-	sxu32 iNum;
 	if( UNQLITE_DB_MISUSE(pDb) ){
 		return 0;
 	}
@@ -6314,7 +6313,7 @@ UNQLITE_APIEXPORT unsigned int unqlite_util_random_num(unqlite *pDb)
 	 }
 #endif
 	 /* Generate the random number */
-	 iNum = unqlitePagerRandomNum(pDb->sDB.pPager);
+	 sxu32 iNum = unqlitePagerRandomNum(pDb->sDB.pPager);
 #if defined(UNQLITE_ENABLE_THREADS)
 	 /* Leave DB mutex */
 	 SyMutexLeave(sUnqlMPGlobal.pMutexMethods,pDb->pMutex); /* NO-OP if sUnqlMPGlobal.nThreadingLevel != UNQLITE_THREAD_LEVEL_MULTI */
@@ -13056,15 +13055,15 @@ JX9_PRIVATE sxi32 jx9ProcessCsv(
 			zIn++;
 		}
 		if( zIn > zPtr ){
-			int nByte = (int)(zIn-zPtr);
+			int nBytes = (int)(zIn-zPtr);
 			sxi32 rc;
 			/* Invoke the supllied callback */
 			if( zPtr[0] == encl ){
 				zPtr++;
-				nByte-=2;
+				nBytes-=2;
 			}
-			if( nByte > 0 ){
-				rc = xConsumer(zPtr, nByte, pUserData);
+			if( nBytes > 0 ){
+				rc = xConsumer(zPtr, nBytes, pUserData);
 				if( rc == SXERR_ABORT ){
 					/* User callback request an operation abort */
 					break;
@@ -17973,14 +17972,14 @@ JX9_PRIVATE sxi32 jx9CompileLiteral(jx9_gen_state *pGen,sxi32 iCompileFlag)
 	}
 	/* Query literal table */
 	if( SXRET_OK != GenStateFindLiteral(&(*pGen), &pToken->sData, &nIdx) ){
-		jx9_value *pObj;
+		jx9_value *pObject;
 		/* Unknown literal, install it in the literal table */
-		pObj = jx9VmReserveConstObj(pGen->pVm, &nIdx);
-		if( pObj == 0 ){
+		pObject = jx9VmReserveConstObj(pGen->pVm, &nIdx);
+		if( pObject == 0 ){
 			return GenStateOutOfMem(pGen);
 		}
-		jx9MemObjInitFromString(pGen->pVm, pObj, &pToken->sData);
-		GenStateInstallLiteral(&(*pGen), pObj, nIdx);
+		jx9MemObjInitFromString(pGen->pVm, pObject, &pToken->sData);
+		GenStateInstallLiteral(&(*pGen), pObject, nIdx);
 	}
 	/* Emit the load constant instruction */
 	jx9VmEmitInstr(pGen->pVm,JX9_OP_LOADC,1,nIdx, 0, 0);
@@ -45423,13 +45422,13 @@ case JX9_OP_CALL: {
 				/* Pass by value, make a copy of the given argument */
 				pObj = VmExtractMemObj(&(*pVm), &aFormalArg[n].sName, FALSE, TRUE);
 			}else{
-				char zName[32];
-				SyString sName;
+				char zNm[32];
+				SyString sNm;
 				/* Set a dummy name */
-				sName.nByte = SyBufferFormat(zName, sizeof(zName), "[%u]apArg", n);
-				sName.zString = zName;
+				sNm.nByte = SyBufferFormat(zNm, sizeof(zNm), "[%u]apArg", n);
+				sNm.zString = zNm;
 				/* Annonymous argument */
-				pObj = VmExtractMemObj(&(*pVm), &sName, TRUE, TRUE);
+				pObj = VmExtractMemObj(&(*pVm), &sNm, TRUE, TRUE);
 			}
 			if( pObj ){
 				jx9MemObjStore(pArg, pObj);
@@ -46263,7 +46262,7 @@ static int vm_builtin_get_defined_constants(jx9_context *pCtx, int nArg, jx9_val
  */
 JX9_PRIVATE sxu32 jx9VmRandomNum(jx9_vm *pVm)
 {
-	sxu32 iNum;
+	sxu32 iNum = 0;
 	SyRandomness(&pVm->sPrng, (void *)&iNum, sizeof(sxu32));
 	return iNum;
 }
@@ -46300,9 +46299,8 @@ JX9_PRIVATE void jx9VmRandomString(jx9_vm *pVm, char *zBuf, int nLen)
  */
 static int vm_builtin_rand(jx9_context *pCtx, int nArg, jx9_value **apArg)
 {
-	sxu32 iNum;
 	/* Generate the random number */
-	iNum = jx9VmRandomNum(pCtx->pVm);
+	sxu32 iNum = jx9VmRandomNum(pCtx->pVm);
 	if( nArg > 1 ){
 		sxu32 iMin, iMax;
 		iMin = (sxu32)jx9_value_to_int(apArg[0]);
@@ -57919,7 +57917,7 @@ UNQLITE_PRIVATE void unqlitePagerRandomString(Pager *pPager,char *zBuf,sxu32 nLe
  */
 UNQLITE_PRIVATE sxu32 unqlitePagerRandomNum(Pager *pPager)
 {
-	sxu32 iNum;
+	sxu32 iNum = 0;
 	SyRandomness(&pPager->sPrng,(void *)&iNum,sizeof(iNum));
 	return iNum;
 }
